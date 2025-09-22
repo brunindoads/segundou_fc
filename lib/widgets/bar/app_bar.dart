@@ -9,10 +9,11 @@ class AppSidebar extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
+    required this.onCollapse,
     this.logoAsset = 'assets/app_icon.png',
     this.width = 240,
-    this.collapsedWidth = 72,
-    this.collapsible = false,
+    this.collapsedWidth = 60,
+    this.isCollapsed = false,
   });
 
   /// Item selecionado
@@ -20,6 +21,9 @@ class AppSidebar extends StatelessWidget {
 
   /// Callback quando um item é selecionado
   final ValueChanged<NavItem> onSelected;
+
+  /// Callback para colapsar/expandir a barra
+  final VoidCallback onCollapse;
 
   /// Caminho do asset da imagem do ícone no topo
   final String logoAsset;
@@ -30,13 +34,12 @@ class AppSidebar extends StatelessWidget {
   /// Largura quando colapsada (se [collapsible] = true)
   final double collapsedWidth;
 
-  /// Habilita modo colapsável (útil em telas menores)
-  final bool collapsible;
+  /// Estado de colapso
+  final bool isCollapsed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isCollapsed = collapsible && MediaQuery.of(context).size.width < 900;
 
     final items = <_SideItem>[
       const _SideItem(
@@ -84,13 +87,16 @@ class AppSidebar extends StatelessWidget {
                 horizontal: isCollapsed ? 8 : 16,
               ),
               child: Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    logoAsset,
-                    width: isCollapsed ? 36 : 64,
-                    height: isCollapsed ? 36 : 64,
-                    fit: BoxFit.cover,
+                child: GestureDetector(
+                  onTap: onCollapse, // Expande/colapsa ao tocar
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      logoAsset,
+                      width: isCollapsed ? 36 : 64,
+                      height: isCollapsed ? 36 : 64,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
@@ -114,7 +120,8 @@ class AppSidebar extends StatelessWidget {
                     onTap: () => onSelected(i.item),
                     textStyle: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.white,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       letterSpacing: 0.2,
                     ),
                   );
@@ -169,7 +176,9 @@ class _SidebarTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Container(
+        child: AnimatedContainer(
+          duration:
+              const Duration(milliseconds: 200), // Anima a mudança de padding
           padding: EdgeInsets.symmetric(
             horizontal: compact ? 10 : 14,
             vertical: compact ? 10 : 12,
