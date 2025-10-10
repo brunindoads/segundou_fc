@@ -1,53 +1,8 @@
 import 'package:flutter/material.dart';
+import '../services/firestore_service.dart';
 
 class DashboardScreen extends StatelessWidget {
-  DashboardScreen({super.key});
-
-  // Dados simulados das partidas
-  final List<PartidaResultado> ultimasPartidas = [
-    PartidaResultado(
-      data: DateTime(2024, 1, 15),
-      pontosLaranja: 3,
-      pontosVerde: 1,
-      duracao: '45 min',
-      tipoPartida: 'Amistoso',
-    ),
-    PartidaResultado(
-      data: DateTime(2024, 1, 14),
-      pontosLaranja: 2,
-      pontosVerde: 2,
-      duracao: '50 min',
-      tipoPartida: 'Campeonato',
-    ),
-    PartidaResultado(
-      data: DateTime(2024, 1, 13),
-      pontosLaranja: 1,
-      pontosVerde: 4,
-      duracao: '40 min',
-      tipoPartida: 'Treino',
-    ),
-    PartidaResultado(
-      data: DateTime(2024, 1, 12),
-      pontosLaranja: 5,
-      pontosVerde: 3,
-      duracao: '55 min',
-      tipoPartida: 'Campeonato',
-    ),
-    PartidaResultado(
-      data: DateTime(2024, 1, 11),
-      pontosLaranja: 2,
-      pontosVerde: 3,
-      duracao: '48 min',
-      tipoPartida: 'Amistoso',
-    ),
-    PartidaResultado(
-      data: DateTime(2024, 1, 10),
-      pontosLaranja: 4,
-      pontosVerde: 4,
-      duracao: '60 min',
-      tipoPartida: 'Final',
-    ),
-  ];
+  const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -58,76 +13,148 @@ class DashboardScreen extends StatelessWidget {
     
     return Scaffold(
       backgroundColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(isSmallScreen ? 12.0 : 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Título do Dashboard
-              Text(
-                'Dashboard',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 24 : 32,
-                  fontWeight: FontWeight.bold,
-                  color: isDarkMode ? Colors.white : Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Últimas Partidas',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 16 : 18,
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Cards das partidas
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  int crossAxisCount = 1;
-                  if (constraints.maxWidth > 900) {
-                    crossAxisCount = 3;
-                  } else if (constraints.maxWidth > 600) {
-                    crossAxisCount = 2;
-                  }
-                  
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      childAspectRatio: isSmallScreen ? 2.2 : 1.8,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
+      body: StreamBuilder<List<GameMatch>>(
+        stream: FirestoreService().getRecentMatches(6), // Busca as últimas 6 partidas
+        builder: (context, snapshot) {
+          // Loading
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          // Error
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.red[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Erro ao carregar partidas',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
-                    itemCount: ultimasPartidas.length,
-                    itemBuilder: (context, index) {
-                      return _buildPartidaCard(
-                        ultimasPartidas[index], 
-                        isDarkMode, 
-                        isSmallScreen
-                      );
-                    },
-                  );
-                },
+                  ),
+                ],
               ),
-              
-              // Estatísticas resumidas
-              const SizedBox(height: 24),
-              _buildEstatisticasResumo(isDarkMode, isSmallScreen, isMediumScreen),
-            ],
-          ),
-        ),
+            );
+          }
+
+          // No data
+          final ultimasPartidas = snapshot.data ?? [];
+
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(isSmallScreen ? 12.0 : 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Título do Dashboard
+                  Text(
+                    'Dashboard',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 24 : 32,
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    ultimasPartidas.isEmpty 
+                      ? 'Nenhuma partida registrada' 
+                      : 'Últimas Partidas',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 16 : 18,
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Cards das partidas
+                  if (ultimasPartidas.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40.0),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.sports_soccer,
+                              size: 64,
+                              color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Nenhuma partida cadastrada ainda',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        int crossAxisCount = 1;
+                        if (constraints.maxWidth > 900) {
+                          crossAxisCount = 3;
+                        } else if (constraints.maxWidth > 600) {
+                          crossAxisCount = 2;
+                        }
+                        
+                        return GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            childAspectRatio: isSmallScreen ? 2.2 : 1.8,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                          itemCount: ultimasPartidas.length,
+                          itemBuilder: (context, index) {
+                            return _buildPartidaCard(
+                              ultimasPartidas[index], 
+                              isDarkMode, 
+                              isSmallScreen
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  
+                  // Estatísticas resumidas
+                  if (ultimasPartidas.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _buildEstatisticasResumo(
+                      ultimasPartidas, 
+                      isDarkMode, 
+                      isSmallScreen, 
+                      isMediumScreen
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildPartidaCard(PartidaResultado partida, bool isDarkMode, bool isSmallScreen) {
-    final vencedor = partida.pontosLaranja > partida.pontosVerde 
+  Widget _buildPartidaCard(GameMatch partida, bool isDarkMode, bool isSmallScreen) {
+    final vencedor = partida.orangeScore > partida.greenScore 
         ? 'Laranja' 
-        : partida.pontosVerde > partida.pontosLaranja 
+        : partida.greenScore > partida.orangeScore 
             ? 'Verde' 
             : 'Empate';
     
@@ -154,7 +181,7 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    '${partida.data.day}/${partida.data.month}/${partida.data.year}',
+                    '${partida.date.day}/${partida.date.month}/${partida.date.year}',
                     style: TextStyle(
                       fontSize: isSmallScreen ? 12 : 14,
                       color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
@@ -168,11 +195,11 @@ class DashboardScreen extends StatelessWidget {
                       vertical: 4
                     ),
                     decoration: BoxDecoration(
-                      color: _getCorTipoPartida(partida.tipoPartida),
+                      color: _getCorTipoPartida(partida.matchType),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      partida.tipoPartida,
+                      partida.matchType,
                       style: TextStyle(
                         fontSize: isSmallScreen ? 10 : 12,
                         color: Colors.white,
@@ -239,7 +266,7 @@ class DashboardScreen extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '${partida.pontosLaranja} - ${partida.pontosVerde}',
+                          '${partida.orangeScore} - ${partida.greenScore}',
                           style: TextStyle(
                             fontSize: isSmallScreen ? 20 : 24,
                             fontWeight: FontWeight.bold,
@@ -304,7 +331,7 @@ class DashboardScreen extends StatelessWidget {
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          partida.duracao,
+                          partida.duration,
                           style: TextStyle(
                             fontSize: isSmallScreen ? 11 : 13,
                             color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
@@ -359,15 +386,20 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEstatisticasResumo(bool isDarkMode, bool isSmallScreen, bool isMediumScreen) {
+  Widget _buildEstatisticasResumo(
+    List<GameMatch> partidas, 
+    bool isDarkMode, 
+    bool isSmallScreen, 
+    bool isMediumScreen
+  ) {
     int vitoriasLaranja = 0;
     int vitoriasVerde = 0;
     int empates = 0;
     
-    for (var partida in ultimasPartidas) {
-      if (partida.pontosLaranja > partida.pontosVerde) {
+    for (var partida in partidas) {
+      if (partida.orangeScore > partida.greenScore) {
         vitoriasLaranja++;
-      } else if (partida.pontosVerde > partida.pontosLaranja) {
+      } else if (partida.greenScore > partida.orangeScore) {
         vitoriasVerde++;
       } else {
         empates++;
@@ -422,7 +454,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   _buildEstatisticaItem(
                     'Total',
-                    ultimasPartidas.length.toString(),
+                    partidas.length.toString(),
                     isDarkMode ? Colors.blue[400]! : Colors.blue,
                     isDarkMode,
                     isSmallScreen,
@@ -459,7 +491,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               _buildEstatisticaItem(
                 'Total de Partidas',
-                ultimasPartidas.length.toString(),
+                partidas.length.toString(),
                 isDarkMode ? Colors.blue[400]! : Colors.blue,
                 isDarkMode,
                 isSmallScreen,
@@ -506,20 +538,4 @@ class DashboardScreen extends StatelessWidget {
         return Colors.grey;
     }
   }
-}
-
-class PartidaResultado {
-  final DateTime data;
-  final int pontosLaranja;
-  final int pontosVerde;
-  final String duracao;
-  final String tipoPartida;
-
-  PartidaResultado({
-    required this.data,
-    required this.pontosLaranja,
-    required this.pontosVerde,
-    required this.duracao,
-    required this.tipoPartida,
-  });
 }

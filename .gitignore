@@ -48,4 +48,5 @@ app.*.map.json
 # Extra
 node_modules/
 lib/firebase_options.dart
-
+.firebase 
+.firebaserc

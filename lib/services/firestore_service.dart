@@ -21,8 +21,8 @@ class PlayerRanking {
     required this.losses,
     required this.goals,
     required this.points,
-    required this.lastUpdated,
-  });
+    DateTime? lastUpdated,
+  }) : lastUpdated = lastUpdated ?? DateTime.now();
 
   // Construtor para criar do Firestore
   factory PlayerRanking.fromFirestore(DocumentSnapshot doc) {
@@ -283,6 +283,45 @@ class FirestoreService {
     }
   }
 
+  /// Atualizar estatísticas específicas de um jogador (usado pelo add_match_dialog)
+  Future<void> updatePlayerStats({
+    required String playerName,
+    required int games,
+    required int wins,
+    required int draws,
+    required int losses,
+    required int points,
+    required int goals,
+  }) async {
+    try {
+      // Buscar o jogador pelo nome
+      final querySnapshot = await _rankingCollection
+          .where('name', isEqualTo: playerName)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final playerId = querySnapshot.docs.first.id;
+        
+        // Atualizar as estatísticas do jogador
+        await _rankingCollection.doc(playerId).update({
+          'games': games,
+          'wins': wins,
+          'draws': draws,
+          'losses': losses,
+          'points': points,
+          'goals': goals,
+          'lastUpdated': Timestamp.now(),
+        });
+      } else {
+        print('Jogador $playerName não encontrado para atualização');
+      }
+    } catch (e) {
+      print('Erro ao atualizar estatísticas do jogador: $e');
+      rethrow;
+    }
+  }
+
   /// Deletar jogador do ranking
   Future<bool> deletePlayer(String playerId) async {
     try {
@@ -334,7 +373,8 @@ class FirestoreService {
     });
   }
 
-  /// Adicionar nova partida
+  /// Adicionar nova partida (SEM atualizar estatísticas automáticas)
+  /// As estatísticas são atualizadas pelo add_match_dialog usando updatePlayerStats
   Future<String?> addMatch({
     required DateTime date,
     required int orangeScore,
@@ -359,16 +399,6 @@ class FirestoreService {
         'greenGoals': greenGoals.map((g) => g.toMap()).toList(),
         'createdAt': Timestamp.now(),
       });
-      
-      // Atualizar estatísticas dos jogadores após adicionar partida
-      await _updatePlayersStats(
-        orangePlayers: orangePlayers,
-        greenPlayers: greenPlayers,
-        orangeScore: orangeScore,
-        greenScore: greenScore,
-        orangeGoals: orangeGoals,
-        greenGoals: greenGoals,
-      );
       
       return docRef.id;
     } catch (e) {
@@ -400,84 +430,6 @@ class FirestoreService {
   }
 
   // ==================== HELPER METHODS ====================
-
-  /// Atualizar estatísticas dos jogadores após uma partida
-  Future<void> _updatePlayersStats({
-    required List<String> orangePlayers,
-    required List<String> greenPlayers,
-    required int orangeScore,
-    required int greenScore,
-    required List<PlayerGoal> orangeGoals,
-    required List<PlayerGoal> greenGoals,
-  }) async {
-    try {
-      // Determinar resultado
-      bool orangeWon = orangeScore > greenScore;
-      bool greenWon = greenScore > orangeScore;
-      bool isDraw = orangeScore == greenScore;
-      
-      // Criar map de gols por jogador
-      Map<String, int> goalsMap = {};
-      for (var goal in orangeGoals) {
-        goalsMap[goal.playerName] = goal.goals;
-      }
-      for (var goal in greenGoals) {
-        goalsMap[goal.playerName] = goal.goals;
-      }
-      
-      // Atualizar jogadores do time laranja
-      for (String playerName in orangePlayers) {
-        PlayerRanking? player = await getPlayerByName(playerName);
-        
-        if (player != null) {
-          await updatePlayer(player.id, {
-            'games': player.games + 1,
-            'wins': player.wins + (orangeWon ? 1 : 0),
-            'draws': player.draws + (isDraw ? 1 : 0),
-            'losses': player.losses + (greenWon ? 1 : 0),
-            'goals': player.goals + (goalsMap[playerName] ?? 0),
-          });
-        } else {
-          // Se o jogador não existe, cria um novo
-          await addPlayer(
-            name: playerName,
-            games: 1,
-            wins: orangeWon ? 1 : 0,
-            draws: isDraw ? 1 : 0,
-            losses: greenWon ? 1 : 0,
-            goals: goalsMap[playerName] ?? 0,
-          );
-        }
-      }
-      
-      // Atualizar jogadores do time verde
-      for (String playerName in greenPlayers) {
-        PlayerRanking? player = await getPlayerByName(playerName);
-        
-        if (player != null) {
-          await updatePlayer(player.id, {
-            'games': player.games + 1,
-            'wins': player.wins + (greenWon ? 1 : 0),
-            'draws': player.draws + (isDraw ? 1 : 0),
-            'losses': player.losses + (orangeWon ? 1 : 0),
-            'goals': player.goals + (goalsMap[playerName] ?? 0),
-          });
-        } else {
-          // Se o jogador não existe, cria um novo
-          await addPlayer(
-            name: playerName,
-            games: 1,
-            wins: greenWon ? 1 : 0,
-            draws: isDraw ? 1 : 0,
-            losses: orangeWon ? 1 : 0,
-            goals: goalsMap[playerName] ?? 0,
-          );
-        }
-      }
-    } catch (e) {
-      print('Erro ao atualizar estatísticas dos jogadores: $e');
-    }
-  }
 
   /// Buscar estatísticas gerais
   Future<Map<String, dynamic>> getGeneralStats() async {

@@ -34,7 +34,7 @@ dependencies:
   firebase_auth: ^6.1.0  # se for usar autenticação
   cloud_firestore: ^6.0.2  # se for usar banco de dados
   firebase_storage: ^13.0.2  # se for usar storage
-  flutter_dotenv: ^5.1.0
+  shared_preferences: ^2.2.2
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -96,4 +96,3 @@ flutter:
 
   assets:
     - assets/app_icon.png
-    - .env

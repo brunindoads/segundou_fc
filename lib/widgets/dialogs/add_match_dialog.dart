@@ -119,6 +119,7 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
           .map((e) => PlayerGoal(playerName: e.key, goals: e.value))
           .toList();
 
+      // Registrar a partida
       final matchId = await service.addMatch(
         date: _selectedDate,
         orangeScore: _orangeScore,
@@ -131,14 +132,19 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
         greenGoals: greenGoalsList,
       );
 
-      if (matchId != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Partida registrada com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.of(context).pop();
+      if (matchId != null) {
+        // Atualizar estatísticas dos jogadores
+        await _updatePlayerStats();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Partida registrada com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -152,6 +158,111 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
     }
 
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _updatePlayerStats() async {
+    final service = FirestoreService();
+    
+    // Determinar resultado da partida
+    bool isDraw = _orangeScore == _greenScore;
+    bool orangeWon = _orangeScore > _greenScore;
+    bool greenWon = _greenScore > _orangeScore;
+
+    // Atualizar estatísticas dos jogadores do time Laranja
+    for (String playerName in _orangePlayers) {
+      // Buscar jogador atual
+      PlayerRanking? player = _allPlayers.firstWhere(
+        (p) => p.name == playerName,
+        orElse: () => PlayerRanking(
+          id: '',
+          name: playerName,
+          points: 0,
+          games: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          goals: 0,
+        ),
+      );
+
+      // Calcular novos valores
+      int newGames = player.games + 1;
+      int newWins = player.wins;
+      int newDraws = player.draws;
+      int newLosses = player.losses;
+      int newPoints = player.points;
+      int newGoals = player.goals + (_orangeGoals[playerName] ?? 0);
+
+      if (isDraw) {
+        newDraws += 1;
+        newPoints += 1;
+      } else if (orangeWon) {
+        newWins += 1;
+        newPoints += 3;
+      } else {
+        newLosses += 1;
+        newPoints += 1;
+      }
+
+      // Atualizar no Firestore
+      await service.updatePlayerStats(
+        playerName: playerName,
+        games: newGames,
+        wins: newWins,
+        draws: newDraws,
+        losses: newLosses,
+        points: newPoints,
+        goals: newGoals,
+      );
+    }
+
+    // Atualizar estatísticas dos jogadores do time Verde
+    for (String playerName in _greenPlayers) {
+      // Buscar jogador atual
+      PlayerRanking? player = _allPlayers.firstWhere(
+        (p) => p.name == playerName,
+        orElse: () => PlayerRanking(
+          id: '',
+          name: playerName,
+          points: 0,
+          games: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          goals: 0,
+        ),
+      );
+
+      // Calcular novos valores
+      int newGames = player.games + 1;
+      int newWins = player.wins;
+      int newDraws = player.draws;
+      int newLosses = player.losses;
+      int newPoints = player.points;
+      int newGoals = player.goals + (_greenGoals[playerName] ?? 0);
+
+      if (isDraw) {
+        newDraws += 1;
+        newPoints += 1;
+      } else if (greenWon) {
+        newWins += 1;
+        newPoints += 3;
+      } else {
+        newLosses += 1;
+        newPoints += 1;
+      }
+
+      // Atualizar no Firestore
+      await service.updatePlayerStats(
+        playerName: playerName,
+        games: newGames,
+        wins: newWins,
+        draws: newDraws,
+        losses: newLosses,
+        points: newPoints,
+        goals: newGoals,
+      );
+    }
   }
 
   @override
